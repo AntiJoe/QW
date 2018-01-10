@@ -46,21 +46,23 @@ nnow = "12/1/2017 13:35"
 # conn = sqlite3.connect('testdb.db')
 conn = sqlite3.connect("./tests/test3.db")
 # c = conn.cursor()
+SQLpullTo = datetime(2018, 1, 5, 10, 0, 0)
 
 
-def refresh_data(query):
-    data = pd.read_sql_query(query, conn)
+def refresh_data(query_in, params_dict):
+    data = pd.read_sql_query(query_in, conn, params=params_dict)
     return data
 
+
 query = """select * from pulpeye 
-        where SampleTime > '2018-01-04' and 
+        where SampleTime > :pulltime and 
         SamplePoint == :line
         order by BatchID desc"""
 
 
 def changeLine(line):
     global df
-    query_dict = {'SamplePoint': line}
+    query_dict = {'line': line, 'pulltime': SQLpullTo}
     df = refresh_data(query, query_dict)
     print(df.head())
 
@@ -68,9 +70,9 @@ SamplePoint = 1
 
 global df
 df = refresh_data("""select * from pulpeye 
-        where SampleTime > '2018-01-04' and 
-        SamplePoint == {}
-        order by BatchID desc""".format(SamplePoint))
+        where SampleTime > :pulltime and 
+        SamplePoint == :line
+        order by BatchID desc""", {'line': 1, 'pulltime': SQLpullTo})
 
 # df = pd.read_sql_query("""select * from pulpeye
 #         where SampleTime > '2018-01-04' and
@@ -85,8 +87,8 @@ print(df.head())
 #          (df.SamplePoint>0) & \
 #          (df.millday == 'Tuesday')]
 
-LARGE_FONT = ("Verdana", 12)
-style.use("ggplot")
+LARGE_FONT = ('Verdana', 12)
+style.use('ggplot')
 
 f = Figure()
 a = f.add_subplot(111)
@@ -151,7 +153,7 @@ class QWindow(tk.Tk):
 
         settingsmenu.add_command(label="Show last 12 hours", command=lambda: LookBack(12))
         settingsmenu.add_command(label="Show last 24 hours", command=lambda: LookBack(24))
-        settingsmenu.add_command(label="Show last week", command=lambda: LookBack(joepulp.admtpd(1000,3)))
+        settingsmenu.add_command(label="Show last week", command=lambda: LookBack(joepulp.admtpd(1000, 3)))
         settingsmenu.add_separator()
         settingsmenu.add_command(label="Save settings", command=lambda: print("Computer Name: ", hostname))
         settingsmenu.add_separator()

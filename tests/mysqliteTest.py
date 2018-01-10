@@ -40,10 +40,6 @@ c = conn.cursor()
 # conn.commit()
 
 
-
-
-
-
 # We can also close the connection if we are done with it.
 # Just be sure any changes have been committed or they will be lost.
 
@@ -56,14 +52,16 @@ query = """SELECT * FROM pulpeye
         ORDER by BatchID desc"""
 
 parameters = {
-    'keys' : "CSF, FL ",
-    'line' : 3,
-    'pulltime' : SQLpullTo
+    'keys': "CSF, FL ",
+    'line': 3,
+    'pulltime': SQLpullTo
 }
+
 
 def pull_data():
     c.execute(query, parameters)
     return c.fetchall()
+
 
 df = pull_data()
 
