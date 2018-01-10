@@ -136,6 +136,7 @@ class QWindow(tk.Tk):
         container.grid_columnconfigure(0, weight=1)
 
         menubar = tk.Menu(container)
+
         filemenu = tk.Menu(menubar, tearoff=0)
         filemenu.add_command(label="Save settings", command=lambda: popupmsg("Not supported just yet!"))
         filemenu.add_separator()
@@ -150,7 +151,6 @@ class QWindow(tk.Tk):
         settingsmenu.add_command(label="Show Rejects", command=lambda: changeLine(4))
         settingsmenu.add_command(label="Show MC 1", command=lambda: changeLine(6))
         settingsmenu.add_command(label="Show MC 6", command=lambda: changeLine(5))
-
         settingsmenu.add_command(label="Show last 12 hours", command=lambda: LookBack(12))
         settingsmenu.add_command(label="Show last 24 hours", command=lambda: LookBack(24))
         settingsmenu.add_command(label="Show last week", command=lambda: LookBack(joepulp.admtpd(1000, 3)))
@@ -159,6 +159,12 @@ class QWindow(tk.Tk):
         settingsmenu.add_separator()
         settingsmenu.add_command(label="Exit", command=quit)
         menubar.add_cascade(label="Settings", menu=settingsmenu)
+
+        timemenu = tk.Menu(menubar, tearoff=1)
+        timemenu.add_command(label="Last 24 hours", command=lambda: print("Samples from {} hours ago".format(24)))
+        timemenu.add_command(label="Last 12 hours", command=lambda: print("Samples from {} hours ago".format(12)))
+        timemenu.add_command(label="Last 8 hours", command=lambda: print("Samples from {} hours ago".format(8)))
+        menubar.add_cascade(label="Time Settings", menu=timemenu)
 
         tk.Tk.config(self, menu=menubar)
 
