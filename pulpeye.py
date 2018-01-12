@@ -129,7 +129,7 @@ def new_packet():
     return new_json_out
 
 
-class pulpeye():
+class pulpeye:
     out = {}
     out2 = {}
     def __init__(self):

@@ -2,34 +2,30 @@
 # December 16, 2017
 # Newest data: 12/1/2017 13:35
 
-import datetime
-import socket
-import sys
-import time
+# import datetime
+# import sys
+# import time
+# import mysql.connector
+# import pandas as pd
+
+import sqlite3
 from datetime import datetime
 import logging
-# import mysql.connector
-import sqlite3
-import pandas as pd
+import socket
 import tkinter as tk
-from tkinter import ttk
-
+# from tkinter import ttk
+import pandas as pd
 import joepulp
-
+import numpy as np
 import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 from matplotlib.figure import Figure
 import matplotlib.animation as animation
-from matplotlib import style
+# from matplotlib import style
+# import urllib
+# import json
 
-import urllib
-import json
-
-import pandas as pd
-import numpy as np
-
-from matplotlib import pyplot as plt
 
 # Capture Host Name (computer name)
 hostname = socket.gethostname()
@@ -40,13 +36,12 @@ logging.basicConfig(filename= "QWindow.log",
                     format = LOG_FORMAT)
 logger = logging.getLogger()
 logger.info('QWindow rev0.0 started on: {}'.format(hostname))
-
-nnow = "12/1/2017 13:35"
-
-# conn = sqlite3.connect('testdb.db')
 conn = sqlite3.connect("./tests/test3.db")
-# c = conn.cursor()
-SQLpullTo = datetime(2018, 1, 5, 10, 0, 0)
+query = """select * from pulpeye 
+        where SampleTime > :pull_time 
+        order by BatchID desc"""
+
+SQLpullTo = datetime(2018, 1, 1, 10, 0, 0)
 
 
 def refresh_data(query_in, params_dict):
@@ -54,73 +49,60 @@ def refresh_data(query_in, params_dict):
     return data
 
 
-query = """select * from pulpeye 
-        where SampleTime > :pulltime and 
-        SamplePoint == :line
-        order by BatchID desc"""
+def update_data(query_in, hours_back):
+    params_dict = {'pull_time': hours_back}
+    data = pd.read_sql_query(query_in, conn, params=params_dict)
+    return data
 
 
-def changeLine(line):
+def changeLine(hr):
     global df
-    query_dict = {'line': line, 'pulltime': SQLpullTo}
+    query_dict = {'line': hr, 'pull_time': SQLpullTo}
     df = refresh_data(query, query_dict)
     print(df.head())
 
-SamplePoint = 1
 
 global df
 df = refresh_data("""select * from pulpeye 
-        where SampleTime > :pulltime and 
-        SamplePoint == :line
-        order by BatchID desc""", {'line': 1, 'pulltime': SQLpullTo})
+        where SampleTime > :pull_time 
+        order by BatchID desc""", {'pull_time': SQLpullTo})
 
-# df = pd.read_sql_query("""select * from pulpeye
-#         where SampleTime > '2018-01-04' and
-#         SamplePoint == 4
-#         order by BatchID desc""", conn)
-
-# df = pd.read_csv('pe.csv')
 print(df.head())
 
-# df2 = df[(df.week_num.isin ([47])) & \
-#          (df.SamplePoint<8) & \
-#          (df.SamplePoint>0) & \
-#          (df.millday == 'Tuesday')]
-
 LARGE_FONT = ('Verdana', 12)
-style.use('ggplot')
+# style.use('ggplot')
+
+y_ticks = np.arange(1.35, 1.85, 0.05)
+y_major = np.arange(1.4, 1.8, 0.1)
+y_minor = np.arange(1.35, 1.75, 0.1)
 
 f = Figure()
 a = f.add_subplot(111)
 
 
 def LookBack(hours):
+    global df
+    df = update_data(query, hours)
     print(hours)
 
 
 def animate(i):
     a.clear()
-
-    # plt.scatter(df2.CSF, df2.FL, c = df2.SamplePoint, alpha=0.4)
-    # plt.ylabel('\nFibre Length (mm)')
-    # plt.xlabel('Freeness (ml)\n')
-    # plt.xticks()
-
     a.legend(bbox_to_anchor=(0, 1.02, 1, .102), loc=3,
              ncol=2, borderaxespad=0)
 
     title = "Quality Window"
     a.set_title(title)
-    # a.plot(df2.CSF, df2.FL)
-
-    # print("test...")
-
-    a.scatter(df.CSF, df.FL, c=df.SamplePoint, alpha=0.4)
-    # a.ylabel('\nFibre Length (mm)')
-    # a.xlabel('Freeness (ml)\n')
-    # a.xticks()
+    a.scatter(df.CSF, df.FL, c=df.SamplePoint, alpha=0.5, marker='.')
+    a.set_xlim(50, 220)
+    a.set_ylim(1.35, 1.8)
+    a.grid(True, color='black', linestyle='-', linewidth=0.5, alpha=0.2)
+    a.set_ylabel('Fibre Length (mm)\n')
+    a.set_xlabel('\nFreeness (ml)')
+    a.set_xticks(list(range(50, 230, 10)))
+    a.set_yticks(y_ticks)
+    # a.set_yticks(y_minor, minor=True)
     a.legend(df.PulpName)
-    a.grid()
 
 
 class QWindow(tk.Tk):
