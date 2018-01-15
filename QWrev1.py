@@ -7,7 +7,7 @@
 # import time
 # import mysql.connector
 # import pandas as pd
-
+import pulpeye_data
 import sqlite3
 from datetime import datetime
 import logging
@@ -22,10 +22,6 @@ matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 from matplotlib.figure import Figure
 import matplotlib.animation as animation
-# from matplotlib import style
-# import urllib
-# import json
-
 
 # Capture Host Name (computer name)
 hostname = socket.gethostname()
@@ -36,38 +32,10 @@ logging.basicConfig(filename="QWindow.log",
                     format=LOG_FORMAT)
 logger = logging.getLogger()
 logger.info('QWindow rev0.0 started on: {}'.format(hostname))
-conn = sqlite3.connect("./tests/test3.db")
-query = """select * from pulpeye 
-        where SampleTime > :pull_time 
-        order by BatchID desc"""
 
-SQLpullTo = datetime(2018, 1, 1, 10, 0, 0)
+pe = pulpeye_data.PulpEyeData()
 
-
-def refresh_data(query_in, params_dict):
-    data = pd.read_sql_query(query_in, conn, params=params_dict)
-    return data
-
-
-def update_data(query_in, hours_back):
-    params_dict = {'pull_time': hours_back}
-    data = pd.read_sql_query(query_in, conn, params=params_dict)
-    return data
-
-
-def changeLine(hr):
-    global df
-    query_dict = {'line': hr, 'pull_time': SQLpullTo}
-    df = refresh_data(query, query_dict)
-    print(df.head())
-
-
-global df
-df = refresh_data("""select * from pulpeye 
-        where SampleTime > :pull_time 
-        order by BatchID desc""", {'pull_time': SQLpullTo})
-
-print(df.head())
+df = pe.data
 
 LARGE_FONT = ('Verdana', 12)
 # style.use('ggplot')
@@ -79,20 +47,34 @@ y_minor = np.arange(1.35, 1.75, 0.1)
 f = Figure()
 a = f.add_subplot(111)
 
+for sample in range(1, 7):
+    a.legend(df.PulpName)
 
-def LookBack(hours):
-    global df
-    df = update_data(query, hours)
-    print(hours)
+
+def renew_data(hours):
+    pe.look_back = hours
+    pe.update()
+    pe.get_data_period_str()
+
 
 
 def animate(i):
     a.clear()
+    df = pe.data
     a.legend(bbox_to_anchor=(0, 1.02, 1, .102), loc=3,
              ncol=2, borderaxespad=0)
 
-    title = "Quality Window"
+    title = "Quality Window...   past {} hours\nData length: {} records\n{} --- {}".format(pe.look_back,
+                                                                                len(pe.data),
+                                                                                pe.latest_SampleTime,
+                                                                                pe.test_look_back)
     a.set_title(title)
+    a.legend(df.PulpName)
+
+    for sample in range(1, 7):
+        dft = pe.data.query('SamplePoint == {}'.format(sample))
+        a.scatter(dft.CSF, dft.FL, alpha=0.5, marker=pe.my_markers[sample])  # , label=dft.PulpName
+        # a.legend()
 
     a.set_xlim(50, 220)
     a.set_ylim(1.35, 1.8)
@@ -101,8 +83,7 @@ def animate(i):
     a.set_xlabel('\nFreeness (ml)')
     a.set_xticks(list(range(50, 230, 10)))
     a.set_yticks(y_ticks)
-    # a.set_yticks(y_minor, minor=True)
-    a.legend(df.PulpName)
+    # a.legend()
 
 
 class QWindow(tk.Tk):
@@ -113,7 +94,7 @@ class QWindow(tk.Tk):
         tk.Tk.iconbitmap(self, default="PHP.ico")
 
         container = tk.Frame(self)
-        container.pack(side = "top", fill = "both", expand = True)
+        container.pack(side="top", fill="both", expand = True)
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
 
@@ -126,16 +107,9 @@ class QWindow(tk.Tk):
         menubar.add_cascade(label="File", menu=filemenu)
 
         settingsmenu = tk.Menu(menubar, tearoff=1)
-        settingsmenu.add_command(label="Show All", command=lambda: changeLine(0))
-        settingsmenu.add_command(label="Show Line 1", command=lambda: changeLine(1))
-        settingsmenu.add_command(label="Show Line 2", command=lambda: changeLine(2))
-        settingsmenu.add_command(label="Show Line 3", command=lambda: changeLine(3))
-        settingsmenu.add_command(label="Show Rejects", command=lambda: changeLine(4))
-        settingsmenu.add_command(label="Show MC 1", command=lambda: changeLine(6))
-        settingsmenu.add_command(label="Show MC 6", command=lambda: changeLine(5))
-        settingsmenu.add_command(label="Show last 12 hours", command=lambda: LookBack(12))
-        settingsmenu.add_command(label="Show last 24 hours", command=lambda: LookBack(24))
-        settingsmenu.add_command(label="Show last week", command=lambda: LookBack(joepulp.admtpd(1000, 3)))
+        settingsmenu.add_command(label="Show last 12 hours", command=lambda: renew_data(12))
+        settingsmenu.add_command(label="Show last 24 hours", command=lambda: renew_data(24))
+        settingsmenu.add_command(label="Show last week", command=lambda: renew_data(168))
         settingsmenu.add_separator()
         settingsmenu.add_command(label="Save settings", command=lambda: print("Computer Name: ", hostname))
         settingsmenu.add_separator()
@@ -143,9 +117,11 @@ class QWindow(tk.Tk):
         menubar.add_cascade(label="Settings", menu=settingsmenu)
 
         timemenu = tk.Menu(menubar, tearoff=1)
-        timemenu.add_command(label="Last 24 hours", command=lambda: print("Samples from {} hours ago".format(24)))
-        timemenu.add_command(label="Last 12 hours", command=lambda: print("Samples from {} hours ago".format(12)))
-        timemenu.add_command(label="Last 8 hours", command=lambda: print("Samples from {} hours ago".format(8)))
+        timemenu.add_command(label="Last 24 hours", command=lambda: renew_data(24))
+        timemenu.add_command(label="Last 12 hours", command=lambda: renew_data(12))
+        timemenu.add_command(label="Last 8 hours", command=lambda: renew_data(8))
+        timemenu.add_command(label="Last week", command=lambda: renew_data(168))
+        timemenu.add_command(label="Last 4 weeks", command=lambda: renew_data(4*168))
         menubar.add_cascade(label="Time Settings", menu=timemenu)
 
         tk.Tk.config(self, menu=menubar)
@@ -161,6 +137,7 @@ class QWindow(tk.Tk):
     def show_frame(self, cont):
         frame = self.frames[cont]
         frame.tkraise()
+
 
 class StartPage(tk.Frame):
 
