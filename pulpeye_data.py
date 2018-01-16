@@ -17,10 +17,20 @@ class PulpEyeData:
 
     max_SampleTime_query = "select max(SampleTime) from pulpeye"
     min_SampleTime_query = "select min(SampleTime) from pulpeye"
+    max_BatchID_query = "select max(BatchID) from pulpeye"
 
     query = """select * from pulpeye 
             where SampleTime > :pull_time and SampleTime < :end_time 
             order by BatchID desc"""
+
+    def max_batchid(self):
+        conn = sqlite3.connect("./tests/test3.db")
+        c = conn.cursor()
+        c.execute(self.max_BatchID_query)
+        maxbatchid = c.fetchall()
+        # dt = datetime.strptime(dtstr[0][0], '%Y-%m-%d %H:%M:%S')
+        conn.close()
+        return maxbatchid[0][0]  # return max batchID
 
     def latest(self):
         conn = sqlite3.connect("./tests/test3.db")
@@ -64,12 +74,13 @@ if __name__ == '__main__':
 
     print("Instance look back: {}".format(pe.look_back))
     print("Module look back: {}".format(PulpEyeData.look_back))
-    print(pe.data.query('SamplePoint == 4'))
+    print(pe.data.query('SamplePoint == 1'))
 
     pe.look_back = 168
     pe.update()
 
     print("Instance look back: {}".format(pe.look_back))
+    print("Instance max BatchID: {}".format(pe.max_batchid()))
     print("Module look back: {}".format(PulpEyeData.look_back))
     print(len(pe.data))
     # print(pe.data)
