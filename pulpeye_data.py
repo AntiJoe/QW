@@ -7,14 +7,16 @@ from datetime import datetime, timedelta
 # import socket
 # import datetime
 
+SQLITE_DB = "./tests/test4.db"
+
 
 class PulpEyeData:
     look_back = 12
+    my_markers = ['.', '.', '^', '*', 'h', '+', 'd']
+    my_colors = ['b', 'b', 'y', 'r', 'bn', 'b', 'g']
+    latest_SampleTime = datetime(2017, 9, 5, 0, 0, 00)  # latest timestamp in sqlite db for testing
 
-    my_markers = ['.', 'o', '^', '+', 's', '+', '^']
-
-    latest_SampleTime = datetime(2017, 9, 5, 13, 50, 00)  # latest timestamp in sqlite db for testing
-
+    # sql queries
     max_SampleTime_query = "select max(SampleTime) from pulpeye"
     min_SampleTime_query = "select min(SampleTime) from pulpeye"
     max_BatchID_query = "select max(BatchID) from pulpeye"
@@ -23,8 +25,20 @@ class PulpEyeData:
             where SampleTime > :pull_time and SampleTime < :end_time 
             order by BatchID desc"""
 
+    def reset_start_time(self):
+        self.latest_SampleTime = datetime.today()
+        self.look_back = 12
+        self.update()
+
+    def set_start_time(self, date):
+        self.latest_SampleTime = date
+
+    def offset_start_time(self, delta):  # delta in days
+        self.latest_SampleTime = self.latest_SampleTime + timedelta(delta)
+        self.update()
+
     def max_batchid(self):
-        conn = sqlite3.connect("./tests/test3.db")
+        conn = sqlite3.connect(SQLITE_DB)
         c = conn.cursor()
         c.execute(self.max_BatchID_query)
         maxbatchid = c.fetchall()
@@ -33,7 +47,7 @@ class PulpEyeData:
         return maxbatchid[0][0]  # return max batchID
 
     def latest(self):
-        conn = sqlite3.connect("./tests/test3.db")
+        conn = sqlite3.connect(SQLITE_DB)
         c = conn.cursor()
         c.execute(self.max_SampleTime_query)
         dtstr = c.fetchall()
@@ -42,7 +56,7 @@ class PulpEyeData:
         return dt  # return datetime object
 
     def earliest(self):
-        conn = sqlite3.connect("./tests/test3.db")
+        conn = sqlite3.connect(SQLITE_DB)
         c = conn.cursor()
         c.execute(self.min_SampleTime_query)
         dtstr = c.fetchall()
@@ -51,8 +65,8 @@ class PulpEyeData:
         return dt  # return datetime object
 
     def get_data_period_str(self):
-        print("latest is {}".format(self.latest()))
-        print("earliest is {}".format(self.earliest()))
+        print("latest is {}".format(self.latest_SampleTime))
+        print("look back is {} hours".format(self.look_back))
 
     def update(self):
         self.test_look_back = self.latest_SampleTime - timedelta(hours=self.look_back)
@@ -60,7 +74,7 @@ class PulpEyeData:
 
     def __init__(self):
         self.test_look_back = self.latest_SampleTime - timedelta(hours=self.look_back)
-        self.conn = sqlite3.connect("./tests/test3.db")
+        self.conn = sqlite3.connect(SQLITE_DB)
         self.data = pd.read_sql_query(self.query, self.conn, params={'pull_time': self.test_look_back, 'end_time': self.latest_SampleTime})
 
 
@@ -81,9 +95,7 @@ if __name__ == '__main__':
 
     print("Instance look back: {}".format(pe.look_back))
     print("Instance max BatchID: {}".format(pe.max_batchid()))
-    print("Module look back: {}".format(PulpEyeData.look_back))
-    print(len(pe.data))
-    # print(pe.data)
+
 
 
 

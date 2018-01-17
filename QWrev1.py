@@ -57,7 +57,6 @@ def renew_data(hours):
     pe.get_data_period_str()
 
 
-
 def animate(i):
     a.clear()
     df = pe.data
@@ -73,7 +72,7 @@ def animate(i):
 
     for sample in range(1, 7):
         dft = pe.data.query('SamplePoint == {}'.format(sample))
-        a.scatter(dft.CSF, dft.FL, alpha=0.5, marker=pe.my_markers[sample])  # , label=dft.PulpName
+        a.scatter(dft.CSF, dft.FL, alpha=0.4, marker=pe.my_markers[sample])  # , label=dft.PulpName
         # a.legend()
 
     a.set_xlim(50, 220)
@@ -117,6 +116,12 @@ class QWindow(tk.Tk):
         menubar.add_cascade(label="Settings", menu=settingsmenu)
 
         timemenu = tk.Menu(menubar, tearoff=1)
+        timemenu.add_command(label="Reset to now", command=lambda: pe.reset_start_time())
+        timemenu.add_command(label="Back one day", command=lambda: pe.offset_start_time(-1))
+        timemenu.add_command(label="Advance one day", command=lambda: pe.offset_start_time(1))
+        timemenu.add_command(label="Back one week", command=lambda: pe.offset_start_time(-7))
+        timemenu.add_command(label="Advance one week", command=lambda: pe.offset_start_time(7))
+        timemenu.add_separator()
         timemenu.add_command(label="Last 24 hours", command=lambda: renew_data(24))
         timemenu.add_command(label="Last 12 hours", command=lambda: renew_data(12))
         timemenu.add_command(label="Last 8 hours", command=lambda: renew_data(8))
@@ -144,11 +149,6 @@ class StartPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         label = tk.Label(self, text="Start Page", font=LARGE_FONT)
-        # label.pack(pady=10, padx=10)
-
-        # button2 = ttk.Button(self, text="Exit",
-        #                      command=quit)
-        # button2.pack()
 
         canvas = FigureCanvasTkAgg(f, self)
         canvas.show()
@@ -159,5 +159,5 @@ class StartPage(tk.Frame):
 
 app = QWindow()
 app.geometry("1280x720")
-ani = animation.FuncAnimation(f, animate, interval=1000)
+ani = animation.FuncAnimation(f, animate, interval=500)
 app.mainloop()
