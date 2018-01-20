@@ -136,6 +136,8 @@ class QWindow(tk.Tk):
         frame = StartPage(container, self)
         self.frames[StartPage] = frame
         frame.grid(row=0, column=0, sticky='nsew')
+
+
         logger.debug("StartPage init")
         self.show_frame(StartPage)
 
