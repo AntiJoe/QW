@@ -113,12 +113,22 @@ if __name__ == '__main__':
     pe.look_back = 168
     pe.update()
 
-    sample = 70292
+    # pe.delete_batch(70292)
+
+    sample = 70293
     print("validate sample {} is: {}".format(sample, pe.validate_sample(sample)))
     sample = 10
     print("validate sample {} is: {}".format(sample, pe.validate_sample(sample, 1)))
     print("Instance look back: {}".format(pe.look_back))
     print("Instance max BatchID: {} sampled at {}".format(pe.max_batch(), pe.latest()))
+
+    # for batch in range(70000, 71000):
+    #     if not pe.validate_sample(batch):
+    #         pe.delete_batch(batch)
+
+
+
+
 
 
 
