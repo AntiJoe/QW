@@ -132,6 +132,7 @@ def new_packet():
 class pulpeye:
     out = {}
     out2 = {}
+
     def __init__(self):
         self.packet_json_new = json.loads(packet_string_new)
         self.samples = self.packet_json_new['samples']
@@ -155,7 +156,6 @@ class pulpeye:
         self.out['samples'] = samples
         self.out['log'] = "Hey Brother.."
         # return self.out
-
 
     def build_packet(self):
         pass

@@ -2,29 +2,23 @@
 # December 16, 2017
 # Newest data: 12/1/2017 13:35
 
-# import datetime
-# import sys
-# import time
-# import mysql.connector
-# import pandas as pd
 import pulpeye_data
-import sqlite3
-from datetime import datetime
 import logging
 import socket
 import tkinter as tk
-# from tkinter import ttk
-import pandas as pd
-import joepulp
 import numpy as np
 import matplotlib
-matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 from matplotlib.figure import Figure
 import matplotlib.animation as animation
 
+matplotlib.use("TkAgg")
+LARGE_FONT = ('Verdana', 12)
+# style.use('ggplot')
+
 # Capture Host Name (computer name)
 hostname = socket.gethostname()
+
 # Create and configure logger
 LOG_FORMAT = '%(asctime)s:%(levelname)s:  %(message)s'
 logging.basicConfig(filename="QWindow.log",
@@ -33,12 +27,10 @@ logging.basicConfig(filename="QWindow.log",
 logger = logging.getLogger()
 logger.info('QWindow rev0.0 started on: {}'.format(hostname))
 
+# create instance of PulpEyeData to use sqlite3 database
 pe = pulpeye_data.PulpEyeData()
 
 df = pe.data
-
-LARGE_FONT = ('Verdana', 12)
-# style.use('ggplot')
 
 y_ticks = np.arange(1.35, 1.85, 0.05)
 y_major = np.arange(1.4, 1.8, 0.1)
@@ -136,7 +128,6 @@ class QWindow(tk.Tk):
         frame = StartPage(container, self)
         self.frames[StartPage] = frame
         frame.grid(row=0, column=0, sticky='nsew')
-
 
         logger.debug("StartPage init")
         self.show_frame(StartPage)

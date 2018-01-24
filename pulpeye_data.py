@@ -1,13 +1,12 @@
-import numpy as np
+# Class PulpEyeData provides QW.py gui app have access to sqlite3 database
+
 import sqlite3
 import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta
-# import json
-# import time
-# import socket
-# import datetime
 
-SQLITE_DB = "test3.db"
+
+SQLITE_DB = "./tests\PulpEye_SQLite.db"
 
 
 class PulpEyeData:
@@ -34,14 +33,21 @@ class PulpEyeData:
             r = 2
         with sqlite3.connect(SQLITE_DB) as conn:
             c = conn.cursor()
-            c.execute(self.validate_BatchID_query, (batch,))
-            valid = c.fetchall()
-            valid_flag = True
-            for i in range(r):
-                print(valid[0][i])
-                if valid[0][i] is None:
-                    valid_flag = False
-            return valid_flag  # return valid status
+            c.execute("select count(*) from pulpeye where BatchID = ?", (batch,))
+            count = c.fetchall()[0][0]
+            # print("count: {}".format(count))
+            if not count:
+                valid_flag = False
+                return valid_flag
+            else:
+                c.execute(self.validate_BatchID_query, (batch,))
+                valid = c.fetchall()
+                valid_flag = True
+                for i in range(r):
+                    # print(valid[0][i])
+                    if valid[0][i] is None:
+                        valid_flag = False
+                return valid_flag  # return valid status
 
     def delete_batch(self, batch):
         with sqlite3.connect(SQLITE_DB) as conn:
@@ -100,38 +106,32 @@ class PulpEyeData:
 
 if __name__ == '__main__':
     pe = PulpEyeData()
-    print("default now is: {}".format(pe.latest_SampleTime))
-
-    # joe = datetime.strptime(pe.latest(), '%Y-%m-%d %H:%M:%S')
-    print("Latest Sample in db is {}".format(pe.latest()))
-    # print(type(joe))
 
     print("Instance look back: {}".format(pe.look_back))
     print("Module look back: {}".format(PulpEyeData.look_back))
-    print(pe.data.query('SamplePoint == 1'))
+    # print(pe.data.query('SamplePoint == 1'))
 
     pe.look_back = 168
     pe.update()
 
     # pe.delete_batch(70292)
 
-    sample = 70293
+    sample = 139732
     print("validate sample {} is: {}".format(sample, pe.validate_sample(sample)))
     sample = 10
     print("validate sample {} is: {}".format(sample, pe.validate_sample(sample, 1)))
     print("Instance look back: {}".format(pe.look_back))
     print("Instance max BatchID: {} sampled at {}".format(pe.max_batch(), pe.latest()))
 
-    # for batch in range(70000, 71000):
-    #     if not pe.validate_sample(batch):
-    #         pe.delete_batch(batch)
+    # for batch in range(70530, 70570):
+    #     print("validation on batch {} is {}".format(batch, pe.validate_sample(batch)))
 
-
-
-
-
-
-
-
+    max_batch = pe.max_batch()
+    for b in range(max_batch, max_batch - 5, -1):
+        if not pe.validate_sample(b, False):
+            pe.delete_batch(b)
+            print("deleted BatchID: {}".format(b))
+        else:
+            print("validate sample {} is: {}".format(b, pe.validate_sample(b, False)))
 
 
