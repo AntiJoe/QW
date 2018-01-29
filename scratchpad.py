@@ -1,6 +1,4 @@
 import threading
-import datetime
-import time
 
 class BuckysMessenger(threading.Thread):
     def run(self):
