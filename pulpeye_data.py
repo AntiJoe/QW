@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 # Capture Host Name (computer name)
 hostname = socket.gethostname()
 AT_PHP = False
-if hostname == 'uphjan2':
+if hostname == 'NSPHKL-33JA':
     AT_PHP = True
 else:
     print("{} not in PHP domain...  no access to PulpEye database".format(hostname))
@@ -20,8 +20,8 @@ SQLITE_DB = "./tests\PulpEye_SQLite.db"
 
 class PulpEyeData:
     look_back = 12
-    my_markers = ['.', '.', '^', '*', 'h', '+', 'd']
-    my_colors = ['b', 'b', 'y', 'r', 'bn', 'b', 'g']
+    my_markers = ['.', 'o', '^', '*', 's', 'o', 'v']
+    my_colors = ['black', 'blue', 'orange', 'red', 'brown', 'black', 'green']
     latest_SampleTime = datetime(2017, 9, 5, 0, 0, 00)  # latest timestamp in sqlite db for testing
       # latest timestamp in sqlite db for testing
 
@@ -32,6 +32,7 @@ class PulpEyeData:
     max_BatchID_query_point = "select max(BatchID) from pulpeye WHERE SamplePoint = ?"
     delete_BatchID_query = "DELETE from pulpeye WHERE BatchID = ?"
     validate_BatchID_query = "SELECT PulpName, CSF, FL, ShiveSum, SampleTime from pulpeye WHERE BatchID = ?"
+    max_group_by_sample = "select max(BatchID), CSF, FL, PulpName from pulpeye group by SamplePoint"
 
     query = """select * from pulpeye 
             where SampleTime > :pull_time and SampleTime < :end_time 
@@ -40,8 +41,9 @@ class PulpEyeData:
     def get_status(self):
         dt = datetime.now()
         max = self.max_batch()
-        results = self.get_sample_results(max)
-        status_msg = "{}  --  Name: {}  CSF: {}  FL: {}  Shives: {}  Sampled at {}".format(dt,
+        results = self.get_sample_results(max -1)
+        status_msg = "{}  --  Latest Sample: {}  CSF: {}  FL: {}  Shives: {}  Sampled at {}"\
+            .format(dt.strftime('%Y-%m-%d %H:%M:%S'),
             results[0],
             results[1],
             results[2],
@@ -153,6 +155,13 @@ class PulpEyeData:
             max_list.append(maxb)
         return max_list
 
+    def max_batch_group_by(self):
+        with sqlite3.connect(SQLITE_DB) as conn:
+            c = conn.cursor()
+            c.execute(self.max_group_by_sample)
+            max_batch_ = c.fetchall()
+            return max_batch_[0][0]  # return max batchID
+
     def max_batch_point(self, pt):
         with sqlite3.connect(SQLITE_DB) as conn:
             c = conn.cursor()
@@ -192,6 +201,9 @@ class PulpEyeData:
         self.data = pd.read_sql_query(self.query, self.conn, params={'pull_time': self.test_look_back, 'end_time': self.latest_SampleTime})
 
     def __init__(self):
+        self.cycle_time = 10
+        self.cycle_count_down = self.cycle_time
+        self.next_cycle = datetime.now()
         self.conn = sqlite3.connect(SQLITE_DB)
         self.latest_SampleTime = self.latest()
         self.test_look_back = self.latest_SampleTime - timedelta(hours=self.look_back)
@@ -208,7 +220,7 @@ if __name__ == '__main__':
 
     max_batch = pe.max_batch()
     # max_batch = 143056
-    for b in range(max_batch, max_batch - 5, -1):
+    for b in range(max_batch, max_batch - 500, -1):
         if not pe.validate_sample(b, False):
             pe.delete_batch(b)
             print("deleted BatchID: {}".format(b))
@@ -238,8 +250,11 @@ if __name__ == '__main__':
         print()
     print(max_batch_list)
     print(len(pe.data))
-    tt = pe.data['BatchID'].isin(max_batch_list)
-    print(pe.data[tt])
-    print(len(tt))
+    itx = pe.data.groupby('SamplePoint')['BatchID'].transform(max) == pe.data['BatchID']
+    print(pe.data[itx])
+
+    # idx = df.groupby(['Mt'])['count'].transform(max) == df['count']
+
+
 
 

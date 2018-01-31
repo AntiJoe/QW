@@ -1,12 +1,20 @@
-import threading
+import time
+from datetime import datetime, timedelta
 
-class BuckysMessenger(threading.Thread):
-    def run(self):
-        for _ in range(10):
-            print(threading.currentThread().getName())
-            # time.sleep(1)
+dt = datetime.now()
+ft = dt + timedelta(seconds=6)
+end_time = dt + timedelta(seconds=30)
 
-x = BuckysMessenger(name='Send out messages')
-y = BuckysMessenger(name='Receive messages')
-x.start()
-y.start()
+print(dt.strftime('%Y-%m-%d %H:%M:%S'))
+print(ft.strftime('%Y-%m-%d %H:%M:%S'))
+print(end_time.strftime('%Y-%m-%d %H:%M:%S'))
+
+while datetime.now() < end_time:
+    while datetime.now() < ft:
+        time.sleep(0.5)
+        print('.', end='', flush=True)
+
+    print(" timer reached")
+    ft = datetime.now() + timedelta(seconds=6)
+
+print("end time reached")
