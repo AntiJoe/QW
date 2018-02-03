@@ -20,7 +20,7 @@ SQLITE_DB = "./tests\PulpEye_SQLite.db"
 
 class PulpEyeData:
     look_back = 12
-    my_markers = ['.', 'o', '^', '*', 's', 'o', 'v']
+    my_markers = ['.', 'o', '^', 's', 'D', 'o', 'v']
     my_colors = ['black', 'blue', 'orange', 'red', 'brown', 'black', 'green']
     latest_SampleTime = datetime(2017, 9, 5, 0, 0, 00)  # latest timestamp in sqlite db for testing
       # latest timestamp in sqlite db for testing
@@ -136,9 +136,9 @@ class PulpEyeData:
             return 0  # return max batchID
 
     def reset_start_time(self):
-        self.latest_SampleTime = datetime.today()
+        # self.latest_SampleTime = datetime.today()
         self.latest_SampleTime = self.latest()
-        self.look_back = 12
+        # self.look_back = 12
         self.update()
 
     def set_start_time(self, date):
@@ -198,11 +198,13 @@ class PulpEyeData:
 
     def update(self):
         self.test_look_back = self.latest_SampleTime - timedelta(hours=self.look_back)
-        self.data = pd.read_sql_query(self.query, self.conn, params={'pull_time': self.test_look_back, 'end_time': self.latest_SampleTime})
+        self.data = pd.read_sql_query(self.query, self.conn, params={'pull_time': self.test_look_back,
+                                                                     'end_time': self.latest_SampleTime})
 
     def __init__(self):
-        self.cycle_time = 10
+        self.cycle_time = 120
         self.cycle_count_down = self.cycle_time
+        self.update_flag = False
         self.next_cycle = datetime.now()
         self.conn = sqlite3.connect(SQLITE_DB)
         self.latest_SampleTime = self.latest()

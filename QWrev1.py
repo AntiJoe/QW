@@ -53,24 +53,33 @@ cross_hairs = [100, 1.55]
 
 f = Figure()
 a = f.add_subplot(111)
+a = f.add_subplot(221)
+a = f.add_subplot(222)
+# b = f.add_subplot(221)
 
 
 def update_pe_data():
     max_batch = pe.max_batch()
+
+    # validate most recent rows of sqlite db
     for b in range(max_batch, max_batch - 25, -1):
         if not pe.validate_sample(b, False):
             pe.delete_batch(b)
             print("deleted BatchID: {}".format(b))
         else:
             print("validate sample {} is: {}".format(b, pe.validate_sample(b, False)))
-    new_samples = pe.get_PulpEye_data(max_batch -10)
+
+    pe.get_PulpEye_data(max_batch - 10)
+
     print("Newest updated batchID after refresh is {}".format(pe.max_batch()))
     # pe.reset_start_time()
+    # pe.latest_SampleTime = pe.latest()
+    pe.update_flag = True
     app.status_bar['text'] = "testing status....."
 
 
 def update_timer():             # timer run by thread
-    print("timer test")
+    print("SQL update thread id: {}".format(threading.get_ident()))
     pe.next_cycle = datetime.now() + timedelta(seconds=pe.cycle_time)
     # end_time = datetime.now() + timedelta(seconds=20)
     while True:
@@ -80,8 +89,8 @@ def update_timer():             # timer run by thread
             print('.', end='', flush=True)
             pe.cycle_count_down -= 1
         print(" timer reached {}".format(pe.next_cycle.strftime('%Y-%m-%d %H:%M:%S')))
-        update_pe_data()
         pe.next_cycle = datetime.now() + timedelta(seconds=pe.cycle_time)
+        update_pe_data()
 
 
 def test_routine():
@@ -102,7 +111,7 @@ def test_routine_large():
     print(pe.data[itx])
     for point in range(1, 7):
         dftt = pe.data[itx].query('SamplePoint == {}'.format(point))
-        a.scatter(dftt.CSF, dftt.FL, alpha=0.8, marker=pe.my_markers[point],
+        a.scatter(dftt.CSF, dftt.FL, alpha=0.4, marker=pe.my_markers[point],
                   s=100,
                   c=pe.my_colors[point])
 
@@ -115,7 +124,7 @@ def renew_data(hours):
     test_routine_large()
 
 
-def update_plot():
+def quality_window_grid(a):
     a.clear()
     df = pe.data
     a.legend(bbox_to_anchor=(0, 1.02, 1, .102), loc=3,
@@ -145,8 +154,8 @@ def update_plot():
     # test_routine()
 
     # cross hairs
-    a.plot([120, 120], [1.5, 1.65], 'g:', linewidth=1)
-    a.plot([100, 140], [1.575, 1.575], 'g:', linewidth=1)
+    a.plot([120, 120], [1.5, 1.65], 'r:', linewidth=1)
+    a.plot([100, 140], [1.575, 1.575], 'r:', linewidth=1)
 
     a.plot([70, 70], [1.5, 1.65], 'k:', linewidth=1)
     a.plot([50, 90], [1.56, 1.56], 'k:', linewidth=1)
@@ -158,10 +167,66 @@ def update_plot():
     app.status_bar['text'] = pe.get_status()
 
 
+def quality_window(a):
+    a.clear()
+    df = pe.data
+    a.legend(bbox_to_anchor=(0, 1.02, 1, .102), loc=3,
+             ncol=2, borderaxespad=0)
+
+    title = "Quality Window   past {} hours\n{} --- {}".format(pe.look_back,
+                                                               pe.latest_SampleTime.strftime('%Y-%m-%d %H:%M:%S'),
+                                                               pe.test_look_back)
+    a.set_title(title)
+    a.legend(df.PulpName)
+
+    for point in range(1, 7):
+        dft = pe.data.query('SamplePoint == {}'.format(point))
+        a.scatter(dft.CSF, dft.FL, alpha=0.4, marker=pe.my_markers[point],
+                  s=30,
+                  c=pe.my_colors[point],
+                  label=LEGEND_LABEL[point])
+
+    a.set_xlim(50, 220)
+    a.set_ylim(1.35, 1.8)
+    a.grid(True, color='black', linestyle='-', linewidth=0.5, alpha=0.2)
+    a.set_ylabel('Fibre Length (mm)\n')
+    a.set_xlabel('\nFreeness (ml)')
+    a.set_xticks(list(range(50, 230, 10)))
+    a.set_yticks(y_ticks)
+
+    # test_routine()
+
+    # cross hairs
+    a.plot([120, 120], [1.5, 1.65], 'r:', linewidth=1)
+    a.plot([100, 140], [1.575, 1.575], 'r:', linewidth=1)
+
+    a.plot([70, 70], [1.5, 1.65], 'k:', linewidth=1)
+    a.plot([50, 90], [1.56, 1.56], 'k:', linewidth=1)
+
+    a.plot([165, 165], [1.42, 1.58], 'b:', linewidth=1)
+    a.plot([145, 185], [1.5, 1.5], 'b:', linewidth=1)
+
+    a.legend()
+    app.status_bar['text'] = pe.get_status()
+
+
+def update_plot():
+    quality_window_grid(a)
+
+
+
 def animate(i):
     pass
     app.status_bar['text'] = pe.get_status()
     app.timer_bar['text'] = get_timer_status()
+
+    if pe.update_flag:
+        try:
+            pe.reset_start_time()
+            update_plot()
+            test_routine_large()
+        finally:
+            pe.update_flag = False
 
 
 class QWindow(tk.Tk):
@@ -176,6 +241,7 @@ class QWindow(tk.Tk):
         # timer thread
         my_thread = threading.Thread(target=update_timer, daemon=True)
         my_thread.start()
+        print("Quality Window thread id: {}".format(threading.get_ident()))
 
         # left hand buttons
         self.show_24_button = Button(self.toolbar, text="Show 24 hours", width=15, command=lambda: renew_data(24))
@@ -191,8 +257,8 @@ class QWindow(tk.Tk):
         self.status_label.pack(side=LEFT)
 
         # right hand buttons
-        self.update_button = Button(self.toolbar, text="Update", width=10, command=lambda: update_pe_data())
-        self.update_button.pack(side=RIGHT, pady=2)
+        # self.update_button = Button(self.toolbar, text="Update", width=10, command=lambda: update_pe_data())
+        # self.update_button.pack(side=RIGHT, pady=2)
         self.test_button = Button(self.toolbar, text="Test", width=10, command=lambda: test_routine())
         self.test_button.pack(side=RIGHT, pady=2)
         self.test_button = Button(self.toolbar, text="Test Large", width=10, command=lambda: test_routine_large())
@@ -218,6 +284,7 @@ class QWindow(tk.Tk):
         settingsmenu.add_command(label="Show last 24 hours", command=lambda: renew_data(24))
         settingsmenu.add_command(label="Show last week", command=lambda: renew_data(168))
         settingsmenu.add_separator()
+        settingsmenu.add_command(label="Validate database", command=lambda: set_cycle_time(120))
         settingsmenu.add_command(label="Save settings", command=lambda: print("Computer Name: ", hostname))
         settingsmenu.add_separator()
         settingsmenu.add_command(label="Exit", command=quit)
@@ -225,7 +292,9 @@ class QWindow(tk.Tk):
 
         timemenu = tk.Menu(menubar, tearoff=1)
         timemenu.add_command(label="Cycle time to 1 minute", command=lambda: set_cycle_time(60))
+        timemenu.add_command(label="Cycle time to 2 minute", command=lambda: set_cycle_time(120))
         timemenu.add_command(label="Cycle time to 5 minute", command=lambda: set_cycle_time(300))
+        timemenu.add_command(label="Cycle time to 15 minute", command=lambda: set_cycle_time(900))
         timemenu.add_command(label="Cycle time to fast", command=lambda: set_cycle_time(5))
         timemenu.add_command(label="Back one day", command=lambda: pe.offset_start_time(-1))
         timemenu.add_command(label="Advance one day", command=lambda: pe.offset_start_time(1))
