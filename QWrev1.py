@@ -25,11 +25,6 @@ LARGE_FONT = ('Verdana', 12)
 hostname = socket.gethostname()
 AT_PHP = False
 
-if hostname == 'NSPHKL-33JA':
-    AT_PHP = True
-else:
-    print("{} not in PHP domain...  no access to PulpEye database".format(hostname))
-
 # Create and configure logger
 LOG_FORMAT = '%(asctime)s:%(levelname)s:  %(message)s'
 logging.basicConfig(filename="QWindow.log",
@@ -53,21 +48,33 @@ cross_hairs = [100, 1.55]
 
 f = Figure()
 a = f.add_subplot(111)
-a = f.add_subplot(221)
-a = f.add_subplot(222)
+# a = f.add_subplot(221)
+# a = f.add_subplot(222)
 # b = f.add_subplot(221)
+f.suptitle('Quality Window',  fontsize=12, fontweight='bold')
+
+
+def grid_toggle():
+    if app.axis_auto:
+        app.grid_button.config(text='Auto Scale')
+        app.axis_auto = False
+    else:
+        app.grid_button.config(text='Fixed Scale')
+        app.axis_auto = True
+    update_plot()
+    test_routine_large()
 
 
 def update_pe_data():
     max_batch = pe.max_batch()
 
     # validate most recent rows of sqlite db
-    for b in range(max_batch, max_batch - 25, -1):
+    for b in range(max_batch, max_batch - 10, -1):
         if not pe.validate_sample(b, False):
             pe.delete_batch(b)
-            print("deleted BatchID: {}".format(b))
+            print("   deleted BatchID: {}".format(b))
         else:
-            print("validate sample {} is: {}".format(b, pe.validate_sample(b, False)))
+            print("   validate sample {} is: {}".format(b, pe.validate_sample(b, False)))
 
     pe.get_PulpEye_data(max_batch - 10)
 
@@ -75,7 +82,15 @@ def update_pe_data():
     # pe.reset_start_time()
     # pe.latest_SampleTime = pe.latest()
     pe.update_flag = True
-    app.status_bar['text'] = "testing status....."
+    app.status_bar['text'] = "updating from PulpEye..."
+
+
+def set_pulpeye_update(en=True):
+    app.auto_update = en
+    if en:
+        app.toolbar.config(bg="light green")
+    else:
+        app.toolbar.config(bg="light blue")
 
 
 def update_timer():             # timer run by thread
@@ -101,8 +116,9 @@ def get_timer_status():
     return "Time to next update: {:3d}".format(pe.cycle_count_down)
 
 
-def set_cycle_time(cycle):
-    pe.cycle_time = cycle
+def set_cycle_time(cycle=0):
+    if cycle > 0:
+        pe.cycle_time = cycle
     pe.next_cycle = datetime.now()
 
 
@@ -122,6 +138,7 @@ def renew_data(hours):
     pe.get_data_period_str()
     update_plot()
     test_routine_large()
+    f.suptitle('Quality Window  ({} hours)'.format(hours), fontsize=11, fontweight='bold', color='blue')
 
 
 def quality_window_grid(a):
@@ -144,7 +161,7 @@ def quality_window_grid(a):
                   label=LEGEND_LABEL[point])
 
     a.set_xlim(50, 220)
-    a.set_ylim(1.35, 1.8)
+    a.set_ylim(1.35, 1.75)
     a.grid(True, color='black', linestyle='-', linewidth=0.5, alpha=0.2)
     a.set_ylabel('Fibre Length (mm)\n')
     a.set_xlabel('\nFreeness (ml)')
@@ -173,10 +190,10 @@ def quality_window(a):
     a.legend(bbox_to_anchor=(0, 1.02, 1, .102), loc=3,
              ncol=2, borderaxespad=0)
 
-    title = "Quality Window   past {} hours\n{} --- {}".format(pe.look_back,
-                                                               pe.latest_SampleTime.strftime('%Y-%m-%d %H:%M:%S'),
-                                                               pe.test_look_back)
-    a.set_title(title)
+    title = "{}   --    {}".format(pe.latest_SampleTime.strftime('%A %b %d   %H:%M:%S'),
+                                 pe.test_look_back.strftime('%A %b %d   %H:%M:%S'))
+
+    a.set_title(title, loc=LEFT, fontsize=11, color='blue')
     a.legend(df.PulpName)
 
     for point in range(1, 7):
@@ -185,12 +202,13 @@ def quality_window(a):
                   s=30,
                   c=pe.my_colors[point],
                   label=LEGEND_LABEL[point])
+    if app.axis_auto:
+        a.set_xlim(50, 220)
+        a.set_ylim(1.35, 1.75)
 
-    a.set_xlim(50, 220)
-    a.set_ylim(1.35, 1.8)
     a.grid(True, color='black', linestyle='-', linewidth=0.5, alpha=0.2)
-    a.set_ylabel('Fibre Length (mm)\n')
-    a.set_xlabel('\nFreeness (ml)')
+    a.set_ylabel('Fibre Length (mm)\n', fontsize=12)
+    a.set_xlabel('\nFreeness (ml)', fontsize=12)
     a.set_xticks(list(range(50, 230, 10)))
     a.set_yticks(y_ticks)
 
@@ -211,22 +229,24 @@ def quality_window(a):
 
 
 def update_plot():
-    quality_window_grid(a)
-
+    quality_window(a)
 
 
 def animate(i):
     pass
-    app.status_bar['text'] = pe.get_status()
-    app.timer_bar['text'] = get_timer_status()
-
-    if pe.update_flag:
-        try:
-            pe.reset_start_time()
-            update_plot()
-            test_routine_large()
-        finally:
-            pe.update_flag = False
+    # app.status_bar['text'] = pe.get_status()
+    app.timer_bar['text'] = 'Auto update disabled'
+    app.timer_bar.config(bg='red')
+    if app.auto_update:
+        app.timer_bar.config(bg='snow')
+        app.timer_bar['text'] = get_timer_status()
+        if pe.update_flag:
+            try:
+                pe.reset_start_time()
+                update_plot()
+                test_routine_large()
+            finally:
+                pe.update_flag = False
 
 
 class QWindow(tk.Tk):
@@ -235,8 +255,9 @@ class QWindow(tk.Tk):
         tk.Tk.__init__(self)
         tk.Tk.wm_title(self, "TMP Quality Window")
         tk.Tk.iconbitmap(self, default="PHP.ico")
-
+        self.auto_update = False
         self.toolbar = tk.Frame(self, bg="light green")
+        self.axis_auto = True
 
         # timer thread
         my_thread = threading.Thread(target=update_timer, daemon=True)
@@ -253,16 +274,16 @@ class QWindow(tk.Tk):
         self.show_12_button = Button(self.toolbar, text="Show 4 hours", width=15, command=lambda: renew_data(4))
         self.show_12_button.pack(side=LEFT, pady=2, padx=2)
 
-        self.status_label = Label(self.toolbar, text='thread test', bd=1, relief=SUNKEN, anchor=W)
-        self.status_label.pack(side=LEFT)
+        # self.status_label = Label(self.toolbar, text='thread test', bd=1, relief=SUNKEN, anchor=W)
+        # self.status_label.pack(side=LEFT)
 
         # right hand buttons
-        # self.update_button = Button(self.toolbar, text="Update", width=10, command=lambda: update_pe_data())
-        # self.update_button.pack(side=RIGHT, pady=2)
-        self.test_button = Button(self.toolbar, text="Test", width=10, command=lambda: test_routine())
-        self.test_button.pack(side=RIGHT, pady=2)
-        self.test_button = Button(self.toolbar, text="Test Large", width=10, command=lambda: test_routine_large())
-        self.test_button.pack(side=RIGHT, pady=2)
+        self.grid_button = Button(self.toolbar, text="Fixed Scale", width=10, command=lambda: grid_toggle())
+        self.grid_button.pack(side=RIGHT, pady=2)
+        self.update_button = Button(self.toolbar, text="Update Now", width=10, command=lambda: set_cycle_time())
+        self.update_button.pack(side=RIGHT, pady=2)
+        # self.test_button = Button(self.toolbar, text="Show Large", width=10, command=lambda: test_routine_large())
+        # self.test_button.pack(side=RIGHT, pady=2)
 
         self.toolbar.pack(side=TOP, fill=X)
 
@@ -280,11 +301,11 @@ class QWindow(tk.Tk):
         menubar.add_cascade(label="File", menu=filemenu)
 
         settingsmenu = tk.Menu(menubar, tearoff=1)
-        settingsmenu.add_command(label="Show last 12 hours", command=lambda: renew_data(24))
-        settingsmenu.add_command(label="Show last 24 hours", command=lambda: renew_data(24))
-        settingsmenu.add_command(label="Show last week", command=lambda: renew_data(168))
+        settingsmenu.add_command(label="Toggle Auto/Fixed scales", command=lambda: grid_toggle())
+        settingsmenu.add_command(label="Enable Auto PulpEye update", command=lambda: set_pulpeye_update(True))
+        settingsmenu.add_command(label="Disable Auto PulpEye update", command=lambda: set_pulpeye_update(False))
         settingsmenu.add_separator()
-        settingsmenu.add_command(label="Validate database", command=lambda: set_cycle_time(120))
+        settingsmenu.add_command(label="Validate database", command=lambda: pe.validate_database(300))
         settingsmenu.add_command(label="Save settings", command=lambda: print("Computer Name: ", hostname))
         settingsmenu.add_separator()
         settingsmenu.add_command(label="Exit", command=quit)
@@ -310,12 +331,11 @@ class QWindow(tk.Tk):
 
         tk.Tk.config(self, menu=menubar)
 
-        self.status_bar = Label(self, text=pe.get_status(), bd=1, relief=SUNKEN, anchor=W)
+        self.status_bar = Label(self, text=pe.get_status(), bd=1, relief=SUNKEN, anchor=W, font=("Helvetica", 10))
         self.status_bar.pack(side=BOTTOM, fill=X)
 
-        self.timer_bar = Label(self, text=get_timer_status(), bd=1, anchor=W)
-        self.timer_bar.pack(side=LEFT)
-
+        self.timer_bar = Label(self, text=get_timer_status(), bd=1, bg='white', anchor=W, font=("Helvetica", 10))
+        self.timer_bar.pack(side=LEFT, fill=X)
 
         self.frames = {}
 
@@ -346,5 +366,12 @@ class StartPage(tk.Frame):
 
 app = QWindow()
 app.geometry("1080x720")
+
+if hostname == 'NSPHKL-33JA':
+    AT_PHP = True
+    app.auto_update = True
+else:
+    print("{} not in PHP domain...  no access to PulpEye database".format(hostname))
+renew_data(4)
 ani = animation.FuncAnimation(f, animate, interval=1000)
 app.mainloop()

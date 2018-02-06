@@ -15,7 +15,9 @@ if hostname == 'NSPHKL-33JA':
 else:
     print("{} not in PHP domain...  no access to PulpEye database".format(hostname))
 
-SQLITE_DB = "./tests\PulpEye_SQLite.db"
+SQLITE_DB = "./tests\PulpEye_SQLite_short.db"
+# SQLITE_DB = r"c:\users\uphjan2\Google Drive\Nish\Projects\QW\tests\PulpEye_SQLite.db"
+
 
 
 class PulpEyeData:
@@ -23,7 +25,7 @@ class PulpEyeData:
     my_markers = ['.', 'o', '^', 's', 'D', 'o', 'v']
     my_colors = ['black', 'blue', 'orange', 'red', 'brown', 'black', 'green']
     latest_SampleTime = datetime(2017, 9, 5, 0, 0, 00)  # latest timestamp in sqlite db for testing
-      # latest timestamp in sqlite db for testing
+    # latest timestamp in sqlite db for testing
 
     # sql queries
     max_SampleTime_query = "select max(SampleTime) from pulpeye"
@@ -41,20 +43,32 @@ class PulpEyeData:
     def get_status(self):
         dt = datetime.now()
         max = self.max_batch()
-        results = self.get_sample_results(max -1)
-        status_msg = "{}  --  Latest Sample: {}  CSF: {}  FL: {}  Shives: {}  Sampled at {}"\
-            .format(dt.strftime('%Y-%m-%d %H:%M:%S'),
-            results[0],
-            results[1],
-            results[2],
-            results[3],
-            results[4])
-        return status_msg
+        results = self.get_sample_results(max - 0)
+        try:
+            status_msg = "{}  --  Latest  ID:{}    {}    CSF:{:.0f}  FL{:.2f}  Shives:{:.0f}    Sampled at {:s}" \
+                .format(dt.strftime('%a   %d %b %y  %H:%M:%S'),
+                        max,
+                        results[0],
+                        results[1],
+                        results[2],
+                        results[3],
+                        results[4])
+            return status_msg
+        except TypeError:
+            self.sql_fail_count += 1
+            print("\nTypeError on get_status()...  count {}  validating database.".format(self.sql_fail_count))
+            self.validate_database(5)
+            status_msg = "TypeError on get_status... count {}  validating database".format(self.sql_fail_count)
+            return status_msg
+        except Exception as e:
+            print("{} on get_status()".format(e))
+            status_msg = "Exception on get_status"
+            return status_msg
 
     def get_PulpEye_data(self, batch):
         sample_list = list()  # create empty list... to hold samples
         if not AT_PHP:
-            self.latest_SampleTime = datetime(2017, 10, 7, 6, 0, 00)
+            self.latest_SampleTime = datetime(2018, 1, 31, 6, 0, 00)
             return sample_list
         else:
             pedb = mysql.connector.connect(user='pulpeye_remote', password='pulp',
@@ -104,7 +118,20 @@ class PulpEyeData:
             c = conn.cursor()
             c.execute(self.validate_BatchID_query, (batch,))
             results = c.fetchall()
-            return results[0]
+            if len(results) > 0:
+                return results[0]
+            else:
+                return 'Fail', 0, 0, 0, 0
+
+    def validate_database(self, num_back):
+        max_bat = self.max_batch()
+        # max_batch = 143056
+        for b in range(max_bat, max_bat - num_back, -1):
+            if not self.validate_sample(b, False):
+                self.delete_batch(b)
+                print("...deleted BatchID: {}".format(b))
+            else:
+                print("...validate sample {} is: {}".format(b, self.validate_sample(b, False)))
 
     def validate_sample(self, batch, complete=False):
         if complete:
@@ -205,6 +232,7 @@ class PulpEyeData:
         self.cycle_time = 120
         self.cycle_count_down = self.cycle_time
         self.update_flag = False
+        self.sql_fail_count = 0
         self.next_cycle = datetime.now()
         self.conn = sqlite3.connect(SQLITE_DB)
         self.latest_SampleTime = self.latest()
@@ -222,12 +250,12 @@ if __name__ == '__main__':
 
     max_batch = pe.max_batch()
     # max_batch = 143056
-    for b in range(max_batch, max_batch - 500, -1):
+    for b in range(max_batch, max_batch - 5, -1):
         if not pe.validate_sample(b, False):
             pe.delete_batch(b)
-            print("deleted BatchID: {}".format(b))
+            print("  deleted BatchID: {}".format(b))
         else:
-            print("validate sample {} is: {}".format(b, pe.validate_sample(b, False)))
+            print("  validate sample {} is: {}".format(b, pe.validate_sample(b, False)))
 
     max_batch = pe.max_batch()
     new_samples = pe.get_PulpEye_data(max_batch)
@@ -239,7 +267,7 @@ if __name__ == '__main__':
         sample_results[3],
         sample_results[4]))
 
-    # print(pe.get_sample_results(13))
+    print(len(sample_results))
 
     max_batch_list = list()
     for i in range(1, 7):
@@ -248,12 +276,17 @@ if __name__ == '__main__':
         print("Max points {} ".format(maxb), end='')
         for _ in range(5):
             print(pe.get_sample_results(maxb)[_], end=', ')
-        #pe.get_sample_results(maxb))
         print()
     print(max_batch_list)
     print(len(pe.data))
     itx = pe.data.groupby('SamplePoint')['BatchID'].transform(max) == pe.data['BatchID']
     print(pe.data[itx])
+
+    print(pe.get_sample_results(9))
+
+    for _ in range(5):
+        print(pe.get_sample_results(9)[_], end=', ')
+    print()
 
     # idx = df.groupby(['Mt'])['count'].transform(max) == df['count']
 
